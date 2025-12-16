@@ -12,7 +12,7 @@
   let isAuthenticated = false;
   let currentUser = null;
   
-  // Корзина
+  // Корзина - теперь загружается из API
   let cartItems = [];
   let cartCount = 0;
   
@@ -61,6 +61,32 @@
   let formSubmitted = false;
   let captchaCode = '';
   
+  // ========== ВАЖНОЕ ДОБАВЛЕНИЕ: Функция загрузки корзины ==========
+  async function loadUserCart() {
+    if (!currentUser) {
+      cartItems = [];
+      cartCount = 0;
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/cart/get?username=${encodeURIComponent(currentUser.username)}`);
+      if (response.ok) {
+        const data = await response.json();
+        cartItems = data.cart || [];
+        cartCount = data.count || 0;
+      } else {
+        console.log('Корзина пуста или ошибка загрузки');
+        cartItems = [];
+        cartCount = 0;
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки корзины:', error);
+      cartItems = [];
+      cartCount = 0;
+    }
+  }
+  
   // Генерация капчи
   function generateCaptcha() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -70,44 +96,8 @@
     }
     captchaCode = result;
   }
-
-  async function handleAddToCart(event) {
-  if (!isAuthenticated) {
-    alert('Войдите в систему для добавления в корзину');
-    showLoginModal = true;
-    return;
-  }
-
-  const catConfig = event.detail;
   
-  try {
-    // 1. Сохраняем в Blob Storage через API
-    const response = await fetch('/api/cart/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: currentUser.username,
-        cat: catConfig
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error('Ошибка API');
-    }
-    
-    // 2. Обновляем локальное состояние
-    cartItems.push(catConfig);
-    cartCount = cartItems.length;
-    alert('Котик добавлен в корзину!');
-    
-  } catch (error) {
-    console.error('Ошибка:', error);
-    alert('Не удалось сохранить котика. Данные могут быть потеряны при перезагрузке.');
-  }
-  }
-
-
-  // Авторизация
+  // Авторизация - ТЕПЕРЬ ЗАГРУЖАЕТ КОРЗИНУ ПОСЛЕ ВХОДА
   async function handleAuth() {
     loginError = '';
     
@@ -130,6 +120,10 @@
         password = '';
         
         localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // ВАЖНО: Загружаем корзину пользователя после входа
+        await loadUserCart();
+        
       } else {
         loginError = data.error || 'Ошибка авторизации';
       }
@@ -141,15 +135,51 @@
   function logout() {
     isAuthenticated = false;
     currentUser = null;
+    cartItems = [];
+    cartCount = 0;
     localStorage.removeItem('user');
   }
   
-  // Добавление в корзину
-  function handleAddToCart(event) {
+  // ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ: Добавление в корзину ==========
+  async function handleAddToCart(event) {
     const catConfig = event.detail;
-    cartItems.push(catConfig);
-    cartCount = cartItems.length;
-    alert('Котик добавлен в корзину!');
+    
+    // Проверка авторизации
+    if (!isAuthenticated) {
+      alert('Для добавления в корзину необходимо войти в систему');
+      showLoginModal = true;
+      return;
+    }
+    
+    try {
+      // 1. Сохраняем котика в Blob Storage через API
+      const response = await fetch('/api/cart/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentUser.username,
+          cat: {
+            ...catConfig,
+            name: `Котик ${catConfig.breed === 'british' ? 'Британский' : 
+                  catConfig.breed === 'siamese' ? 'Сиамский' : 'Мейн-кун'}`
+          }
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        // 2. Обновляем локальное состояние
+        cartItems.push(catConfig);
+        cartCount = cartItems.length;
+        alert('Котик добавлен в корзину и сохранен!');
+      } else {
+        alert('Ошибка: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Ошибка при сохранении котика:', error);
+      alert('Не удалось сохранить котика. Попробуйте снова.');
+    }
   }
   
   // Отправка формы
@@ -191,6 +221,8 @@
     if (savedUser) {
       currentUser = JSON.parse(savedUser);
       isAuthenticated = true;
+      // ВАЖНО: Загружаем корзину при загрузке страницы
+      loadUserCart();
     }
     
     generateCaptcha();
@@ -224,13 +256,23 @@
 
 <!-- МОДАЛЬНОЕ ОКНО АВТОРИЗАЦИИ -->
 {#if showLoginModal}
-<div class="modal-overlay" on:click={() => showLoginModal = false}>
-  <div class="modal" on:click|stopPropagation>
+<div class="modal-overlay" on:click={() => showLoginModal = false}
+     on:keydown={(e) => e.key === 'Escape' && (showLoginModal = false)}
+     tabindex="0" role="button">
+  <div class="modal" on:click|stopPropagation
+       on:keydown|stopPropagation>
     <h2>{isRegistering ? 'Регистрация' : 'Вход'}</h2>
     
     <form on:submit|preventDefault={handleAuth}>
-      <input type="text" bind:value={username} placeholder="Имя пользователя" required />
-      <input type="password" bind:value={password} placeholder="Пароль" required />
+      <div class="form-group">
+        <label for="login-username">Имя пользователя</label>
+        <input id="login-username" type="text" bind:value={username} placeholder="Имя пользователя" required />
+      </div>
+      
+      <div class="form-group">
+        <label for="login-password">Пароль</label>
+        <input id="login-password" type="password" bind:value={password} placeholder="Пароль" required />
+      </div>
       
       {#if loginError}
         <p class="error-message">{loginError}</p>
@@ -245,7 +287,7 @@
       {isRegistering ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
     </button>
     
-    <button class="btn btn-close" on:click={() => showLoginModal = false}>✕</button>
+    <button class="btn btn-close" on:click={() => showLoginModal = false} aria-label="Закрыть">✕</button>
   </div>
 </div>
 {/if}
@@ -315,23 +357,23 @@
     {:else}
       <form class="consultation-form" on:submit={submitForm}>
         <div class="form-group">
-          <label>Ваше имя *</label>
-          <input type="text" bind:value={formData.name} required />
+          <label for="name">Ваше имя *</label>
+          <input id="name" type="text" bind:value={formData.name} required />
         </div>
         
         <div class="form-group">
-          <label>Телефон *</label>
-          <input type="tel" bind:value={formData.phone} required />
+          <label for="phone">Телефон *</label>
+          <input id="phone" type="tel" bind:value={formData.phone} required />
         </div>
         
         <div class="form-group">
-          <label>Email</label>
-          <input type="email" bind:value={formData.email} />
+          <label for="email">Email</label>
+          <input id="email" type="email" bind:value={formData.email} />
         </div>
         
         <div class="form-group">
-          <label>Предпочтительный способ связи</label>
-          <select bind:value={formData.contactMethod}>
+          <label for="contact-method">Предпочтительный способ связи</label>
+          <select id="contact-method" bind:value={formData.contactMethod}>
             <option value="phone">Телефон</option>
             <option value="email">Email</option>
             <option value="whatsapp">WhatsApp</option>
@@ -340,12 +382,12 @@
         </div>
         
         <div class="form-group captcha-group">
-          <label>Введите код с картинки *</label>
+          <label for="captcha">Введите код с картинки *</label>
           <div class="captcha">
             <div class="captcha-code">{captchaCode}</div>
-            <button type="button" class="btn-refresh" on:click={generateCaptcha}>🔄</button>
+            <button type="button" class="btn-refresh" on:click={generateCaptcha} aria-label="Обновить код">🔄</button>
           </div>
-          <input type="text" bind:value={formData.captcha} placeholder="Введите код" required />
+          <input id="captcha" type="text" bind:value={formData.captcha} placeholder="Введите код" required />
         </div>
         
         <div class="form-group checkbox-group">
@@ -379,10 +421,10 @@
     <div class="footer-section">
       <h4>Мы в соцсетях</h4>
       <div class="social-links">
-        <a href="#" class="social-link">📘 VK</a>
-        <a href="#" class="social-link">📷 Instagram</a>
-        <a href="#" class="social-link">📹 YouTube</a>
-        <a href="#" class="social-link">💬 Telegram</a>
+        <a href="https://vk.com" target="_blank" rel="noopener noreferrer" class="social-link">📘 VK</a>
+        <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="social-link">📷 Instagram</a>
+        <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" class="social-link">📹 YouTube</a>
+        <a href="https://t.me" target="_blank" rel="noopener noreferrer" class="social-link">💬 Telegram</a>
       </div>
     </div>
     
@@ -524,10 +566,19 @@
     color: #667eea;
   }
   
+  .modal .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .modal .form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #4a5568;
+  }
+  
   .modal input {
     width: 100%;
     padding: 0.5rem;
-    margin: 0.5rem 0;
     border: 1px solid #ddd;
     border-radius: 4px;
     box-sizing: border-box;
@@ -555,6 +606,7 @@
     width: 100%;
     text-align: center;
     padding: 0.5rem;
+    margin-top: 1rem;
   }
   
   .btn-close {
