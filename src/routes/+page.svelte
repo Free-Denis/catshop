@@ -70,7 +70,43 @@
     }
     captchaCode = result;
   }
+
+  async function handleAddToCart(event) {
+  if (!isAuthenticated) {
+    alert('Войдите в систему для добавления в корзину');
+    showLoginModal = true;
+    return;
+  }
+
+  const catConfig = event.detail;
   
+  try {
+    // 1. Сохраняем в Blob Storage через API
+    const response = await fetch('/api/cart/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: currentUser.username,
+        cat: catConfig
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Ошибка API');
+    }
+    
+    // 2. Обновляем локальное состояние
+    cartItems.push(catConfig);
+    cartCount = cartItems.length;
+    alert('Котик добавлен в корзину!');
+    
+  } catch (error) {
+    console.error('Ошибка:', error);
+    alert('Не удалось сохранить котика. Данные могут быть потеряны при перезагрузке.');
+  }
+  }
+
+
   // Авторизация
   async function handleAuth() {
     loginError = '';
