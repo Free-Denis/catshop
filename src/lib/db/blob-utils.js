@@ -1,6 +1,6 @@
 // src/lib/db/blob-utils.js
 const BLOB_STORE_URL = 'https://qecbpcpssqmnkyz4.public.blob.vercel-storage.com';
-const BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_QecbPCpSsqMNKYZ4_sADguH5zyoI7OWGz7tcWP9AENyMqXZ';
+const BLOB_READ_WRITE_TOKEN = import.meta.env.VITE_BLOB_READ_WRITE_TOKEN || 'vercel_blob_rw_QecbPCpSsqMNKYZ4_sADguH5zyoI7OWGz7tcWP9AENyMqXZ';
 const DATA_FILE = 'data.json';
 
 // Инициализация начальных данных
@@ -9,7 +9,7 @@ const initialData = {
   cats: [
     {
       id: '1',
-      breed: 'Британский',
+      breed: 'british',
       eyes: 'Золотистые',
       fur: 'Короткая',
       thickness: 4,
@@ -18,7 +18,7 @@ const initialData = {
     },
     {
       id: '2',
-      breed: 'Мейн-кун',
+      breed: 'mainecoon',
       eyes: 'Зеленые',
       fur: 'Длинная',
       thickness: 5,
@@ -27,20 +27,11 @@ const initialData = {
     },
     {
       id: '3',
-      breed: 'Сфинкс',
+      breed: 'siamese',
       eyes: 'Голубые',
-      fur: 'Без шерсти',
-      thickness: 1,
-      price: 30000,
-      available: true
-    },
-    {
-      id: '4',
-      breed: 'Шотландский',
-      eyes: 'Медные',
-      fur: 'Плюшевая',
+      fur: 'Короткая',
       thickness: 3,
-      price: 22000,
+      price: 30000,
       available: true
     }
   ]
@@ -58,6 +49,7 @@ export async function loadData() {
 
     if (response.status === 404) {
       // Файл не существует, создаем начальные данные
+      console.log('Создаем начальные данные...');
       await saveData(initialData);
       return initialData;
     }
@@ -97,13 +89,33 @@ export async function saveData(data) {
   }
 }
 
-// Хэширование пароля (простая реализация для демо)
+// Хэширование пароля
 export function hashPassword(password) {
-  // В реальном приложении используйте bcrypt или аналогичную библиотеку
-  return btoa(password); // Просто для демо - в продакшене не использовать!
+  // В реальном приложении используйте bcrypt
+  return btoa(password);
 }
 
 // Генерация ID
 export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Получить пользователя по username
+export async function getUserByUsername(username) {
+  const data = await loadData();
+  return data.users.find(u => u.username === username);
+}
+
+// Обновить пользователя
+export async function updateUser(username, userData) {
+  const data = await loadData();
+  const userIndex = data.users.findIndex(u => u.username === username);
+  
+  if (userIndex === -1) {
+    throw new Error('User not found');
+  }
+  
+  data.users[userIndex] = { ...data.users[userIndex], ...userData };
+  await saveData(data);
+  return data.users[userIndex];
 }
