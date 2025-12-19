@@ -37,7 +37,7 @@ export async function POST({ request }) {
     if (!data.users) data.users = [];
     data.users.push(newUser);
     
-    // Сохраняем обновленные данные
+    // Сохраняем обновленные данные (saveData не выбрасывает ошибку)
     await saveData(data);
 
     // Возвращаем пользователя (без пароля)
@@ -45,6 +45,7 @@ export async function POST({ request }) {
     
     return new Response(
       JSON.stringify({ 
+        success: true,
         message: 'Registration successful',
         user: userWithoutPassword 
       }),
@@ -57,6 +58,7 @@ export async function POST({ request }) {
     console.error('Registration error:', error);
     return new Response(
       JSON.stringify({ 
+        success: false,
         error: 'Registration failed',
         details: error.message 
       }),
