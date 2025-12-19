@@ -1,14 +1,12 @@
 // src/lib/db/blob-utils.js
-import { put, head, del } from '@vercel/blob';
-
+const BLOB_STORE_URL = 'https://qecbpcpssqmnkyz4.public.blob.vercel-storage.com';
 const BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_QecbPCpSsqMNKYZ4_sADguH5zyoI7OWGz7tcWP9AENyMqXZ";
-const BLOB_URL = 'https://qecbpcpssqmnkyz4.public.blob.vercel-storage.com/data.json';
+const DATA_FILE = 'data.json';
 
 // Функция для загрузки данных из Blob Storage
 export async function loadData() {
   try {
-    // Прямой fetch к публичному URL
-    const response = await fetch(BLOB_URL, {
+    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
       cache: 'no-store'
     });
 
@@ -18,7 +16,8 @@ export async function loadData() {
         console.log('Файл не найден, возвращаем пустую структуру');
         return { users: [] };
       }
-      throw new Error(`Failed to load: ${response.status}`);
+      console.error('Ошибка загрузки:', response.status);
+      return { users: [] };
     }
 
     return await response.json();
@@ -28,25 +27,35 @@ export async function loadData() {
   }
 }
 
-// Функция для сохранения данных в Blob Storage
+// Функция для сохранения данных в Blob Storage через Vercel API
 export async function saveData(data) {
   try {
-    console.log('Сохраняем данные через Vercel Blob SDK...');
+    console.log('Сохраняем данные...');
     
-    const jsonString = JSON.stringify(data, null, 2);
-    
-    // Используем официальный SDK
-    const blob = await put('data.json', jsonString, {
-      access: 'public',
-      token: BLOB_READ_WRITE_TOKEN,
-      addRandomSuffix: false,
-      contentType: 'application/json'
+    // Используем Vercel Blob REST API
+    const response = await fetch(`https://vercel-blob-proxy.vercel.app/api/blob/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filename: DATA_FILE,
+        data: JSON.stringify(data, null, 2),
+        token: BLOB_READ_WRITE_TOKEN,
+        access: 'public'
+      })
     });
 
-    console.log('✅ Данные сохранены в Blob:', blob.url);
-    return blob;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Ошибка сохранения:', response.status, errorText);
+      throw new Error(`Failed to save: ${response.status}`);
+    }
+
+    console.log('✅ Данные сохранены!');
+    return data;
   } catch (error) {
-    console.error('❌ Error saving with Vercel Blob SDK:', error);
+    console.error('Error saving data:', error);
     throw error;
   }
 }
@@ -61,14 +70,18 @@ export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Проверка существования файла
-export async function checkBlobExists() {
-  try {
-    await head('data.json', {
-      token: BLOB_READ_WRITE_TOKEN
-    });
-    return true;
-  } catch (error) {
-    return false;
+// Простая альтернатива: сохраняем через специальный API
+export async function saveDataSimple(data) {
+  // Этот метод будет использовать ваш собственный API
+  const response = await fetch('/api/save-to-blob', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data })
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to save');
   }
+  
+  return data;
 }
