@@ -8,17 +8,17 @@ export async function POST({ request }) {
     if (!username || !password) {
       return new Response(
         JSON.stringify({ error: 'Username and password are required' }),
-        { status: 400 }
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await loadData();
     
     // Проверяем, существует ли пользователь
-    if (data.users.find(user => user.username === username)) {
+    if (data.users && data.users.find(user => user.username === username)) {
       return new Response(
         JSON.stringify({ error: 'Username already exists' }),
-        { status: 409 }
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -28,9 +28,15 @@ export async function POST({ request }) {
       username,
       password: hashPassword(password),
       createdAt: new Date().toISOString(),
-      cart: []
+      cart: [],
+      orders: []
     };
 
+    // Инициализируем users массив если его нет
+    if (!data.users) {
+      data.users = [];
+    }
+    
     data.users.push(newUser);
     await saveData(data);
 
@@ -42,12 +48,16 @@ export async function POST({ request }) {
         message: 'Registration successful',
         user: userWithoutPassword 
       }),
-      { status: 201 }
+      { 
+        status: 201, 
+        headers: { 'Content-Type': 'application/json' } 
+      }
     );
   } catch (error) {
+    console.error('Registration error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500 }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
