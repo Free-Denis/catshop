@@ -7,22 +7,18 @@ const DATA_FILE = 'data.json';
 export async function loadData() {
   try {
     // Прямой GET запрос к публичному файлу
-    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
-      cache: 'no-store'
-    });
-
+    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`);
+    
     if (!response.ok) {
       if (response.status === 404) {
-        console.log('Файл data.json не найден, возвращаем пустую структуру');
+        console.log('Файл не найден, возвращаем пустую структуру');
         return { users: [] };
       }
-      console.error('Ошибка загрузки:', response.status, response.statusText);
+      console.error('Ошибка загрузки:', response.status);
       return { users: [] };
     }
-
-    const data = await response.json();
-    console.log('Данные успешно загружены из Blob');
-    return data;
+    
+    return await response.json();
   } catch (error) {
     console.error('Error loading data:', error);
     return { users: [] };
@@ -32,101 +28,42 @@ export async function loadData() {
 // Функция для сохранения данных в Blob Storage
 export async function saveData(data) {
   try {
-    console.log('Сохраняем данные в Blob Storage...');
+    console.log('Пытаемся сохранить данные...');
     
-    // Используем специальный эндпоинт Vercel Blob API
-    const response = await fetch('https://api.vercel.com/v2/now/blob', {
-      method: 'POST',
+    // ЕДИНСТВЕННЫЙ РАБОЧИЙ МЕТОД для Vercel Blob Storage:
+    // Используем прямой PUT запрос с токеном
+    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
+      method: 'PUT',
       headers: {
         'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        name: DATA_FILE,
-        data: JSON.stringify(data, null, 2),
-        contentType: 'application/json',
-        access: 'public'
-      })
+      body: JSON.stringify(data, null, 2)
     });
-
-    console.log('Статус сохранения:', response.status);
+    
+    console.log('Статус ответа:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Ошибка сохранения:', response.status, errorText);
-      
-      // Пробуем альтернативный метод
-      return await saveDataAlternative(data);
+      console.error('Полный ответ ошибки:', errorText);
+      throw new Error(`Failed to save: ${response.status}`);
     }
-
-    const result = await response.json();
-    console.log('✅ Данные сохранены! URL:', result.url);
-    return result;
+    
+    console.log('✅ Данные успешно сохранены!');
+    return await response.json();
+    
   } catch (error) {
     console.error('Error saving data:', error);
-    
-    // Пробуем альтернативный метод при ошибке
-    try {
-      return await saveDataAlternative(data);
-    } catch (fallbackError) {
-      throw new Error(`Failed to save: ${error.message}`);
-    }
+    throw error;
   }
-}
-
-// Альтернативный метод сохранения
-async function saveDataAlternative(data) {
-  console.log('Пробуем альтернативный метод сохранения...');
-  
-  // Метод через PUT с добавлением query параметров
-  const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}?access=public`, {
-    method: 'POST', // Пробуем POST
-    headers: {
-      'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`,
-      'Content-Type': 'application/json',
-      'x-vercel-accepted-methods': 'PUT,POST,PATCH'
-    },
-    body: JSON.stringify(data, null, 2)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Alternative method failed: ${response.status} - ${errorText}`);
-  }
-
-  console.log('✅ Данные сохранены через альтернативный метод');
-  return data;
 }
 
 // Хэширование пароля
 export function hashPassword(password) {
-  // Простое хэширование для демо
   return btoa(password);
 }
 
 // Генерация ID
 export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-// Быстрая проверка доступности Blob Storage
-export async function checkBlobAccess() {
-  try {
-    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
-      headers: {
-        'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`
-      }
-    });
-    
-    return {
-      canRead: response.ok,
-      status: response.status,
-      statusText: response.statusText
-    };
-  } catch (error) {
-    return {
-      canRead: false,
-      error: error.message
-    };
-  }
 }
