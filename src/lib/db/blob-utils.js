@@ -6,62 +6,101 @@ const DATA_FILE = 'data.json';
 // Функция для загрузки данных из Blob Storage
 export async function loadData() {
   try {
+    // Прямой GET запрос к публичному файлу
     const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
       cache: 'no-store'
     });
 
     if (!response.ok) {
-      // Если файл не найден (404), возвращаем пустую структуру
       if (response.status === 404) {
-        console.log('Файл не найден, возвращаем пустую структуру');
+        console.log('Файл data.json не найден, возвращаем пустую структуру');
         return { users: [] };
       }
-      console.error('Ошибка загрузки:', response.status);
+      console.error('Ошибка загрузки:', response.status, response.statusText);
       return { users: [] };
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('Данные успешно загружены из Blob');
+    return data;
   } catch (error) {
     console.error('Error loading data:', error);
     return { users: [] };
   }
 }
 
-// Функция для сохранения данных в Blob Storage через Vercel API
+// Функция для сохранения данных в Blob Storage
 export async function saveData(data) {
   try {
-    console.log('Сохраняем данные...');
+    console.log('Сохраняем данные в Blob Storage...');
     
-    // Используем Vercel Blob REST API
-    const response = await fetch(`https://vercel-blob-proxy.vercel.app/api/blob/upload`, {
+    // Используем специальный эндпоинт Vercel Blob API
+    const response = await fetch('https://api.vercel.com/v2/now/blob', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        filename: DATA_FILE,
+        name: DATA_FILE,
         data: JSON.stringify(data, null, 2),
-        token: BLOB_READ_WRITE_TOKEN,
+        contentType: 'application/json',
         access: 'public'
       })
     });
 
+    console.log('Статус сохранения:', response.status);
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Ошибка сохранения:', response.status, errorText);
-      throw new Error(`Failed to save: ${response.status}`);
+      
+      // Пробуем альтернативный метод
+      return await saveDataAlternative(data);
     }
 
-    console.log('✅ Данные сохранены!');
-    return data;
+    const result = await response.json();
+    console.log('✅ Данные сохранены! URL:', result.url);
+    return result;
   } catch (error) {
     console.error('Error saving data:', error);
-    throw error;
+    
+    // Пробуем альтернативный метод при ошибке
+    try {
+      return await saveDataAlternative(data);
+    } catch (fallbackError) {
+      throw new Error(`Failed to save: ${error.message}`);
+    }
   }
+}
+
+// Альтернативный метод сохранения
+async function saveDataAlternative(data) {
+  console.log('Пробуем альтернативный метод сохранения...');
+  
+  // Метод через PUT с добавлением query параметров
+  const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}?access=public`, {
+    method: 'POST', // Пробуем POST
+    headers: {
+      'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`,
+      'Content-Type': 'application/json',
+      'x-vercel-accepted-methods': 'PUT,POST,PATCH'
+    },
+    body: JSON.stringify(data, null, 2)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Alternative method failed: ${response.status} - ${errorText}`);
+  }
+
+  console.log('✅ Данные сохранены через альтернативный метод');
+  return data;
 }
 
 // Хэширование пароля
 export function hashPassword(password) {
+  // Простое хэширование для демо
   return btoa(password);
 }
 
@@ -70,18 +109,24 @@ export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Простая альтернатива: сохраняем через специальный API
-export async function saveDataSimple(data) {
-  // Этот метод будет использовать ваш собственный API
-  const response = await fetch('/api/save-to-blob', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data })
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to save');
+// Быстрая проверка доступности Blob Storage
+export async function checkBlobAccess() {
+  try {
+    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
+      headers: {
+        'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`
+      }
+    });
+    
+    return {
+      canRead: response.ok,
+      status: response.status,
+      statusText: response.statusText
+    };
+  } catch (error) {
+    return {
+      canRead: false,
+      error: error.message
+    };
   }
-  
-  return data;
 }
