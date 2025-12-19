@@ -12,7 +12,7 @@
   let isAuthenticated = false;
   let currentUser = null;
   
-  // Корзина - теперь загружается из API
+  // Корзина
   let cartItems = [];
   let cartCount = 0;
   
@@ -24,29 +24,8 @@
     { id: 4, caption: 'Сертификаты качества' }
   ];
   
-  let reviews = [
-    { 
-      id: 1, 
-      name: 'Анна Петрова', 
-      avatar: '👩', 
-      cat: 'Британский котёнок', 
-      review: 'Замечательный котёнок! Очень ласковый и игривый. Питомник рекомендую!' 
-    },
-    { 
-      id: 2, 
-      name: 'Иван Сидоров', 
-      avatar: '👨', 
-      cat: 'Мейн-кун', 
-      review: 'Кот просто великолепен! Здоровый, активный, все прививки сделаны.' 
-    },
-    { 
-      id: 3, 
-      name: 'Мария Иванова', 
-      avatar: '👩‍💼', 
-      cat: 'Сфинкс', 
-      review: 'Мечта сбылась! Котёнок очень умный и ласковый. Спасибо питомнику!' 
-    }
-  ];
+  let reviews = [];
+  let availableCats = []; // Котики из базы
   
   // Форма заявки
   let formData = {
@@ -61,7 +40,64 @@
   let formSubmitted = false;
   let captchaCode = '';
   
-  // ========== ВАЖНОЕ ДОБАВЛЕНИЕ: Функция загрузки корзины ==========
+  // ========== ВСЕ ФУНКЦИИ РАБОТЫ С БАЗОЙ ==========
+  
+  // Загрузить котиков из базы
+  async function loadCatsFromDB() {
+    try {
+      const response = await fetch('/api/cats');
+      if (response.ok) {
+        const data = await response.json();
+        availableCats = data.cats || [];
+        console.log('Загружены котики из базы:', availableCats.length);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки котиков:', error);
+    }
+  }
+  
+  // Загрузить отзывы из базы
+  async function loadReviewsFromDB() {
+    try {
+      const response = await fetch('/api/reviews');
+      if (response.ok) {
+        const data = await response.json();
+        reviews = data.reviews || [];
+      } else {
+        // Если нет в базе, используем начальные
+        reviews = [
+          { 
+            id: '1', 
+            name: 'Анна Петрова', 
+            avatar: '👩', 
+            cat: 'Британский котёнок', 
+            review: 'Замечательный котёнок! Очень ласковый и игривый. Питомник рекомендую!',
+            createdAt: new Date().toISOString()
+          },
+          { 
+            id: '2', 
+            name: 'Иван Сидоров', 
+            avatar: '👨', 
+            cat: 'Мейн-кун', 
+            review: 'Кот просто великолепен! Здоровый, активный, все прививки сделаны.',
+            createdAt: new Date().toISOString()
+          },
+          { 
+            id: '3', 
+            name: 'Мария Иванова', 
+            avatar: '👩‍💼', 
+            cat: 'Сфинкс', 
+            review: 'Мечта сбылась! Котёнок очень умный и ласковый. Спасибо питомнику!',
+            createdAt: new Date().toISOString()
+          }
+        ];
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки отзывов:', error);
+    }
+  }
+  
+  // Загрузить корзину пользователя из базы
   async function loadUserCart() {
     if (!currentUser) {
       cartItems = [];
@@ -75,8 +111,8 @@
         const data = await response.json();
         cartItems = data.cart || [];
         cartCount = data.count || 0;
+        console.log('Корзина загружена из базы:', cartItems.length, 'котиков');
       } else {
-        console.log('Корзина пуста или ошибка загрузки');
         cartItems = [];
         cartCount = 0;
       }
@@ -97,7 +133,7 @@
     captchaCode = result;
   }
   
-  // Авторизация - ТЕПЕРЬ ЗАГРУЖАЕТ КОРЗИНУ ПОСЛЕ ВХОДА
+  // Авторизация - РАБОТАЕТ С БАЗОЙ
   async function handleAuth() {
     loginError = '';
     
@@ -121,7 +157,7 @@
         
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // ВАЖНО: Загружаем корзину пользователя после входа
+        // Загружаем все данные пользователя из базы
         await loadUserCart();
         
       } else {
@@ -132,6 +168,7 @@
     }
   }
   
+  // Выход
   function logout() {
     isAuthenticated = false;
     currentUser = null;
@@ -140,11 +177,10 @@
     localStorage.removeItem('user');
   }
   
-  // ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ: Добавление в корзину ==========
+  // Добавление в корзину - СОХРАНЯЕТ В БАЗУ
   async function handleAddToCart(event) {
     const catConfig = event.detail;
     
-    // Проверка авторизации
     if (!isAuthenticated) {
       alert('Для добавления в корзину необходимо войти в систему');
       showLoginModal = true;
@@ -152,7 +188,7 @@
     }
     
     try {
-      // 1. Сохраняем котика в Blob Storage через API
+      // Сохраняем котика в базу через API
       const response = await fetch('/api/cart/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -161,7 +197,9 @@
           cat: {
             ...catConfig,
             name: `Котик ${catConfig.breed === 'british' ? 'Британский' : 
-                  catConfig.breed === 'siamese' ? 'Сиамский' : 'Мейн-кун'}`
+                  catConfig.breed === 'siamese' ? 'Сиамский' : 'Мейн-кун'}`,
+            createdAt: new Date().toISOString(),
+            status: 'cart'
           }
         })
       });
@@ -169,21 +207,21 @@
       const result = await response.json();
       
       if (response.ok) {
-        // 2. Обновляем локальное состояние
+        // Обновляем локальное состояние
         cartItems.push(catConfig);
         cartCount = cartItems.length;
-        alert('Котик добавлен в корзину и сохранен!');
+        alert('✅ Котик добавлен в корзину и сохранен в базе!');
       } else {
-        alert('Ошибка: ' + result.error);
+        alert('❌ Ошибка: ' + result.error);
       }
     } catch (error) {
       console.error('Ошибка при сохранении котика:', error);
-      alert('Не удалось сохранить котика. Попробуйте снова.');
+      alert('❌ Не удалось сохранить котика. Попробуйте снова.');
     }
   }
   
-  // Отправка формы
-  function submitForm(e) {
+  // Отправка формы заявки - СОХРАНЯЕТ В БАЗУ
+  async function submitForm(e) {
     e.preventDefault();
     
     if (!formData.agree) {
@@ -197,32 +235,93 @@
       return;
     }
     
-    formSubmitted = true;
-    
-    formData = {
-      name: '',
-      phone: '',
-      email: '',
-      contactMethod: 'phone',
-      agree: false,
-      captcha: ''
-    };
-    
-    generateCaptcha();
-    
-    setTimeout(() => {
-      formSubmitted = false;
-    }, 5000);
+    try {
+      // Сохраняем заявку в базу
+      const response = await fetch('/api/requests/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          captcha: captchaCode,
+          submittedAt: new Date().toISOString(),
+          status: 'new'
+        })
+      });
+      
+      if (response.ok) {
+        formSubmitted = true;
+        
+        // Сбрасываем форму
+        formData = {
+          name: '',
+          phone: '',
+          email: '',
+          contactMethod: 'phone',
+          agree: false,
+          captcha: ''
+        };
+        
+        generateCaptcha();
+        
+        setTimeout(() => {
+          formSubmitted = false;
+        }, 5000);
+      } else {
+        const data = await response.json();
+        alert('Ошибка отправки: ' + data.error);
+      }
+    } catch (error) {
+      alert('Ошибка сети при отправке формы');
+    }
   }
   
-  // Инициализация
-  onMount(() => {
+  // Добавление отзыва - СОХРАНЯЕТ В БАЗУ
+  async function addReview() {
+    const reviewText = prompt('Напишите ваш отзыв:');
+    if (!reviewText || !reviewText.trim()) return;
+    
+    if (!isAuthenticated) {
+      alert('Чтобы оставить отзыв, войдите в систему');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/reviews/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentUser.username,
+          review: reviewText,
+          cat: 'Котик из конструктора',
+          createdAt: new Date().toISOString()
+        })
+      });
+      
+      if (response.ok) {
+        alert('✅ Спасибо за отзыв! Он сохранен.');
+        // Обновляем отзывы
+        await loadReviewsFromDB();
+      } else {
+        alert('❌ Ошибка при сохранении отзыва');
+      }
+    } catch (error) {
+      console.error('Ошибка:', error);
+    }
+  }
+  
+  // Инициализация - ЗАГРУЖАЕТ ВСЕ ИЗ БАЗЫ
+  onMount(async () => {
+    // Загружаем общие данные
+    await loadCatsFromDB();
+    await loadReviewsFromDB();
+    
+    // Проверяем авторизацию
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       currentUser = JSON.parse(savedUser);
       isAuthenticated = true;
-      // ВАЖНО: Загружаем корзину при загрузке страницы
-      loadUserCart();
+      // Загружаем данные пользователя
+      await loadUserCart();
     }
     
     generateCaptcha();
@@ -304,6 +403,26 @@
         <p>Мы занимаемся профессиональным разведением породистых кошек с 2010 года. Все наши котята выращены в любви и заботе, имеют полный пакет документов, привиты и обладают отличным здоровьем.</p>
         <p>Наша миссия — дарить людям верных пушистых друзей, которые будут радовать вас долгие годы своей лаской и преданностью.</p>
       </div>
+      
+      <!-- Доступные котики из базы -->
+      {#if availableCats.length > 0}
+        <div class="available-cats">
+          <h3>🐱 Доступные породы в питомнике:</h3>
+          <div class="cats-grid">
+            {#each availableCats as cat}
+              {#if cat.available}
+                <div class="cat-badge">
+                  <span class="cat-breed">
+                    {cat.breed === 'british' ? 'Британский' : 
+                     cat.breed === 'siamese' ? 'Сиамский' : 'Мейн-кун'}
+                  </span>
+                  <span class="cat-price">{cat.price.toLocaleString()} ₽</span>
+                </div>
+              {/if}
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   </section>
   
@@ -322,15 +441,23 @@
   
   <!-- ОТЗЫВЫ -->
   <section class="reviews-section">
-    <h2>⭐ Отзывы наших клиентов</h2>
+    <div class="reviews-header">
+      <h2>⭐ Отзывы наших клиентов</h2>
+      <button class="btn btn-add-review" on:click={addReview}>
+        + Добавить отзыв
+      </button>
+    </div>
     <div class="reviews">
       {#each reviews as review}
         <div class="review-card">
           <div class="review-header">
-            <span class="avatar">{review.avatar}</span>
+            <span class="avatar">{review.avatar || '👤'}</span>
             <div>
               <h4>{review.name}</h4>
               <p class="cat-name">Котик: {review.cat}</p>
+              <small class="review-date">
+                {new Date(review.createdAt || Date.now()).toLocaleDateString()}
+              </small>
             </div>
           </div>
           <p class="review-text">"{review.review}"</p>
@@ -351,8 +478,9 @@
     
     {#if formSubmitted}
       <div class="success-message">
-        <h3>Спасибо за заявку!</h3>
+        <h3>✅ Спасибо за заявку!</h3>
         <p>Мы свяжемся с вами в ближайшее время.</p>
+        <p><small>Ваша заявка сохранена в нашей базе.</small></p>
       </div>
     {:else}
       <form class="consultation-form" on:submit={submitForm}>
@@ -397,7 +525,7 @@
           </label>
         </div>
         
-        <button type="submit" class="btn btn-submit">Отправить заявку</button>
+        <button type="submit" class="btn btn-submit">📨 Отправить заявку (сохранить в базе)</button>
       </form>
     {/if}
   </section>
@@ -409,6 +537,7 @@
     <div class="footer-section">
       <h3>Кото-Мир</h3>
       <p>Профессиональный питомник породистых кошек</p>
+      <p><small>Все данные хранятся в защищенном облачном хранилище</small></p>
     </div>
     
     <div class="footer-section">
@@ -437,6 +566,7 @@
   
   <div class="footer-bottom">
     <p>© 2024 Кото-Мир. Все права защищены.</p>
+    <p><small>База данных: Vercel Blob Storage</small></p>
   </div>
 </footer>
 
@@ -505,6 +635,16 @@
   .btn-login:hover, .btn-logout:hover {
     background: #f7f7f7;
     transform: translateY(-2px);
+  }
+  
+  .btn-add-review {
+    background: #48bb78;
+    color: white;
+    font-size: 0.9rem;
+  }
+  
+  .btn-add-review:hover {
+    background: #38a169;
   }
   
   .cart-btn {
@@ -644,6 +784,43 @@
     font-size: 1.5rem;
   }
   
+  /* Доступные котики */
+  .available-cats {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 8px;
+  }
+  
+  .cats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  
+  .cat-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    min-width: 120px;
+  }
+  
+  .cat-breed {
+    font-weight: 500;
+    color: #4a5568;
+  }
+  
+  .cat-price {
+    font-size: 0.9rem;
+    color: #667eea;
+    font-weight: bold;
+  }
+  
   /* ГАЛЕРЕЯ */
   .gallery {
     display: grid;
@@ -669,6 +846,13 @@
   }
   
   /* ОТЗЫВЫ */
+  .reviews-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
   .reviews {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -696,6 +880,11 @@
     color: #667eea;
     font-weight: 500;
     margin: 0;
+  }
+  
+  .review-date {
+    color: #a0aec0;
+    font-size: 0.8rem;
   }
   
   .review-text {
@@ -844,6 +1033,12 @@
   @media (max-width: 768px) {
     .header-container {
       flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .reviews-header {
+      flex-direction: column;
+      align-items: flex-start;
       gap: 1rem;
     }
   }
