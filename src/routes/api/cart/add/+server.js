@@ -1,10 +1,11 @@
+// src/routes/api/cart/add/+server.js
 import { loadData, saveData, generateId } from '$lib/db/blob-utils.js';
 
 export async function POST({ request }) {
   try {
     const { username, cat } = await request.json();
     
-    if (!username || !cat || !cat.breed) {
+    if (!username || !cat) {
       return new Response(
         JSON.stringify({ error: 'Username and cat details are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -12,7 +13,7 @@ export async function POST({ request }) {
     }
 
     const data = await loadData();
-    const userIndex = data.users.findIndex(u => u.username === username);
+    const userIndex = data.users?.findIndex(u => u.username === username);
     
     if (userIndex === -1) {
       return new Response(
@@ -24,16 +25,16 @@ export async function POST({ request }) {
     // Создаем объект котика для корзины
     const cartCat = {
       id: generateId(),
-      name: cat.name || `Котик ${cat.breed}`,
-      breed: cat.breed,
-      eyes: cat.eyes || 'Разные',
-      fur: cat.fur || 'Обычная',
-      thickness: cat.thickness || 3,
-      price: cat.price || 20000,
+      ...cat,
       status: 'cart',
       createdAt: new Date().toISOString()
     };
 
+    // Инициализируем cart если его нет
+    if (!data.users[userIndex].cart) {
+      data.users[userIndex].cart = [];
+    }
+    
     // Добавляем в корзину пользователя
     data.users[userIndex].cart.push(cartCat);
     
