@@ -14,22 +14,29 @@ export async function loadData() {
     });
 
     if (!response.ok) {
+      // Если файл не найден (404), возвращаем пустые данные
+      if (response.status === 404) {
+        console.log('Файл не найден, возвращаем пустую структуру');
+        return { users: [] };
+      }
       throw new Error(`Failed to load: ${response.status}`);
     }
 
     return await response.json();
   } catch (error) {
     console.error('Error loading data:', error);
-    // Возвращаем пустую структуру при ошибке
     return { users: [] };
   }
 }
 
-// Функция для сохранения данных в Blob Storage
+// Функция для сохранения данных в Blob Storage - ИСПРАВЛЕНО!
 export async function saveData(data) {
   try {
+    console.log('Сохраняем данные в Blob Storage...');
+    
+    // Используем POST вместо PUT
     const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
-      method: 'PUT',
+      method: 'POST',  // ← ИЗМЕНЕНИЕ ЗДЕСЬ
       headers: {
         'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`,
         'Content-Type': 'application/json'
@@ -37,10 +44,15 @@ export async function saveData(data) {
       body: JSON.stringify(data, null, 2)
     });
 
+    console.log('Статус ответа:', response.status);
+    
     if (!response.ok) {
-      throw new Error(`Failed to save: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Ошибка сохранения:', errorText);
+      throw new Error(`Failed to save: ${response.status} - ${errorText}`);
     }
 
+    console.log('Данные успешно сохранены!');
     return await response.json();
   } catch (error) {
     console.error('Error saving data:', error);
