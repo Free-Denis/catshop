@@ -1,4 +1,4 @@
-// src/routes/api/order/create/+server.js (исправляем)
+// src/routes/api/order/create/+server.js
 import { loadData, saveData, generateId } from '$lib/db/blob-utils.js';
 
 export async function POST({ request }) {
@@ -13,7 +13,7 @@ export async function POST({ request }) {
     }
 
     const data = await loadData();
-    const userIndex = data.users.findIndex(u => u.username === username);
+    const userIndex = data.users?.findIndex(u => u.username === username);
     
     if (userIndex === -1) {
       return new Response(
@@ -24,8 +24,8 @@ export async function POST({ request }) {
 
     const user = data.users[userIndex];
     
-    // Получаем только котиков со статусом "cart"
-    const cartItems = user.cart.filter(item => item.status === 'cart');
+    // Получаем котиков со статусом "cart"
+    const cartItems = user.cart?.filter(item => item.status === 'cart') || [];
     
     if (cartItems.length === 0) {
       return new Response(
@@ -40,8 +40,9 @@ export async function POST({ request }) {
       id: orderId,
       items: cartItems.map(item => ({
         catId: item.id,
-        name: `Котик ${item.breed}`,
         breed: item.breed,
+        furColor: item.furColor,
+        eyeColor: item.eyeColor,
         price: item.price
       })),
       total: cartItems.reduce((sum, item) => sum + item.price, 0),
@@ -49,14 +50,20 @@ export async function POST({ request }) {
       createdAt: new Date().toISOString()
     };
 
+    // Инициализируем orders если их нет
+    if (!user.orders) {
+      user.orders = [];
+    }
+    
     // Добавляем заказ в историю
     user.orders.push(order);
     
-    // Меняем статус котиков на "ordered" (вместо удаления)
-    user.cart.forEach(item => {
-      if (item.status === 'cart') {
-        item.status = 'ordered';
-        item.orderedAt = new Date().toISOString();
+    // Меняем статус котиков на "ordered"
+    cartItems.forEach(cartItem => {
+      const itemIndex = user.cart.findIndex(item => item.id === cartItem.id);
+      if (itemIndex !== -1) {
+        user.cart[itemIndex].status = 'ordered';
+        user.cart[itemIndex].orderedAt = new Date().toISOString();
       }
     });
     
