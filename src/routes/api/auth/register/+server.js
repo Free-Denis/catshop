@@ -8,17 +8,18 @@ export async function POST({ request }) {
     if (!username || !password) {
       return new Response(
         JSON.stringify({ error: 'Username and password are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400 }
       );
     }
 
-    const data = await loadData();
+    // Загружаем текущие данные
+    let data = await loadData();
     
     // Проверяем, существует ли пользователь
     if (data.users && data.users.find(user => user.username === username)) {
       return new Response(
         JSON.stringify({ error: 'Username already exists' }),
-        { status: 409, headers: { 'Content-Type': 'application/json' } }
+        { status: 409 }
       );
     }
 
@@ -32,15 +33,14 @@ export async function POST({ request }) {
       orders: []
     };
 
-    // Инициализируем users массив если его нет
-    if (!data.users) {
-      data.users = [];
-    }
-    
+    // Добавляем пользователя
+    if (!data.users) data.users = [];
     data.users.push(newUser);
+    
+    // Сохраняем обновленные данные
     await saveData(data);
 
-    // Возвращаем без пароля
+    // Возвращаем пользователя (без пароля)
     const { password: _, ...userWithoutPassword } = newUser;
     
     return new Response(
@@ -49,15 +49,18 @@ export async function POST({ request }) {
         user: userWithoutPassword 
       }),
       { 
-        status: 201, 
+        status: 201,
         headers: { 'Content-Type': 'application/json' } 
       }
     );
   } catch (error) {
     console.error('Registration error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        error: 'Registration failed',
+        details: error.message 
+      }),
+      { status: 500 }
     );
   }
 }
