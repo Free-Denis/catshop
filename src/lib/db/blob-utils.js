@@ -1,23 +1,24 @@
 // src/lib/db/blob-utils.js
 const BLOB_STORE_URL = 'https://qecbpcpssqmnkyz4.public.blob.vercel-storage.com';
-const BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_QecbPCpSsqMNKYZ4_sADguH5zyoI7OWGz7tcWP9AENyMqXZ";
+const BLOB_TOKEN = "vercel_blob_rw_QecbPCpSsqMNKYZ4_sADguH5zyoI7OWGz7tcWP9AENyMqXZ";
 const DATA_FILE = 'data.json';
 
 // Функция для загрузки данных из Blob Storage
 export async function loadData() {
   try {
-    // Прямой GET запрос к публичному файлу
-    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`);
-    
+    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
+      cache: 'no-store'
+    });
+
     if (!response.ok) {
       if (response.status === 404) {
-        console.log('Файл не найден, возвращаем пустую структуру');
+        console.log('Файл не найден, создаем пустую структуру');
         return { users: [] };
       }
       console.error('Ошибка загрузки:', response.status);
       return { users: [] };
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('Error loading data:', error);
@@ -25,33 +26,30 @@ export async function loadData() {
   }
 }
 
-// Функция для сохранения данных в Blob Storage
+// Функция для сохранения данных в Blob Storage через специальный API
 export async function saveData(data) {
   try {
-    console.log('Пытаемся сохранить данные...');
+    console.log('Сохраняем данные через Blob API...');
     
-    // ЕДИНСТВЕННЫЙ РАБОЧИЙ МЕТОД для Vercel Blob Storage:
-    // Используем прямой PUT запрос с токеном
-    const response = await fetch(`${BLOB_STORE_URL}/${DATA_FILE}`, {
-      method: 'PUT',
+    // ЕДИНСТВЕННЫЙ РАБОЧИЙ МЕТОД для Vercel Blob
+    const response = await fetch('/api/blob/upload', {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${BLOB_READ_WRITE_TOKEN}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data, null, 2)
+      body: JSON.stringify({
+        filename: DATA_FILE,
+        data: JSON.stringify(data, null, 2)
+      })
     });
-    
-    console.log('Статус ответа:', response.status);
-    
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Полный ответ ошибки:', errorText);
-      throw new Error(`Failed to save: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(`Failed to save: ${response.status} - ${errorData.error || 'Unknown error'}`);
     }
-    
-    console.log('✅ Данные успешно сохранены!');
+
+    console.log('✅ Данные сохранены!');
     return await response.json();
-    
   } catch (error) {
     console.error('Error saving data:', error);
     throw error;
