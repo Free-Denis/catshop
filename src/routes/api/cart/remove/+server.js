@@ -1,3 +1,4 @@
+// src/routes/api/cart/remove/+server.js
 import { loadData, saveData } from '$lib/db/blob-utils.js';
 
 export async function DELETE({ request }) {
@@ -12,7 +13,7 @@ export async function DELETE({ request }) {
     }
 
     const data = await loadData();
-    const userIndex = data.users.findIndex(u => u.username === username);
+    const userIndex = data.users?.findIndex(u => u.username === username);
     
     if (userIndex === -1) {
       return new Response(
@@ -21,10 +22,17 @@ export async function DELETE({ request }) {
       );
     }
 
+    const user = data.users[userIndex];
+    
+    if (!user.cart) {
+      return new Response(
+        JSON.stringify({ error: 'Cart is empty' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Находим индекс котика в корзине
-    const cartIndex = data.users[userIndex].cart.findIndex(
-      item => item.id === catId && item.status === 'cart'
-    );
+    const cartIndex = user.cart.findIndex(item => item.id === catId);
     
     if (cartIndex === -1) {
       return new Response(
@@ -34,7 +42,7 @@ export async function DELETE({ request }) {
     }
 
     // Удаляем котика из корзины
-    data.users[userIndex].cart.splice(cartIndex, 1);
+    user.cart.splice(cartIndex, 1);
     
     // Сохраняем данные
     await saveData(data);
