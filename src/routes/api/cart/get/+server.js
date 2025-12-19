@@ -13,7 +13,7 @@ export async function GET({ url }) {
     }
 
     const data = await loadData();
-    const user = data.users.find(u => u.username === username);
+    const user = data.users?.find(u => u.username === username);
     
     if (!user) {
       return new Response(
@@ -23,7 +23,7 @@ export async function GET({ url }) {
     }
 
     // Только котики со статусом 'cart'
-    const cartItems = user.cart.filter(item => item.status === 'cart');
+    const cartItems = user.cart?.filter(item => item.status === 'cart') || [];
     const total = cartItems.reduce((sum, item) => sum + (item.price || 0), 0);
     
     return new Response(
