@@ -1,3 +1,4 @@
+// src/routes/api/auth/login/+server.js
 import { loadData, hashPassword } from '$lib/db/blob-utils.js';
 
 export async function POST({ request }) {
@@ -11,11 +12,10 @@ export async function POST({ request }) {
       );
     }
 
-    // Загружаем данные
     const data = await loadData();
     
     // Ищем пользователя
-    const user = data.users.find(u => u.username === username);
+    const user = data.users?.find(u => u.username === username);
     
     // Проверяем пароль
     if (!user || user.password !== hashPassword(password)) {
