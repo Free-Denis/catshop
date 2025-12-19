@@ -1,26 +1,24 @@
+// src/routes/api/auth/register/+server.js
 import { loadData, saveData, hashPassword, generateId } from '$lib/db/blob-utils.js';
 
 export async function POST({ request }) {
   try {
-    const { username, password, email } = await request.json();
+    const { username, password } = await request.json();
     
-    // Валидация
     if (!username || !password) {
       return new Response(
         JSON.stringify({ error: 'Username and password are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400 }
       );
     }
 
-    // Загружаем данные
     const data = await loadData();
     
     // Проверяем, существует ли пользователь
-    const userExists = data.users.find(user => user.username === username);
-    if (userExists) {
+    if (data.users.find(user => user.username === username)) {
       return new Response(
         JSON.stringify({ error: 'Username already exists' }),
-        { status: 409, headers: { 'Content-Type': 'application/json' } }
+        { status: 409 }
       );
     }
 
@@ -29,19 +27,14 @@ export async function POST({ request }) {
       id: generateId(),
       username,
       password: hashPassword(password),
-      email: email || '',
       createdAt: new Date().toISOString(),
-      cart: [],
-      orders: []
+      cart: []
     };
 
-    // Добавляем пользователя
     data.users.push(newUser);
-    
-    // Сохраняем данные
     await saveData(data);
 
-    // Возвращаем пользователя (без пароля)
+    // Возвращаем без пароля
     const { password: _, ...userWithoutPassword } = newUser;
     
     return new Response(
@@ -49,16 +42,12 @@ export async function POST({ request }) {
         message: 'Registration successful',
         user: userWithoutPassword 
       }),
-      { 
-        status: 201, 
-        headers: { 'Content-Type': 'application/json' } 
-      }
+      { status: 201 }
     );
   } catch (error) {
-    console.error('Registration error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500 }
     );
   }
 }
