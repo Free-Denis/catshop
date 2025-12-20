@@ -1,4 +1,3 @@
-<!-- src/routes/+page.svelte -->
 <script>
   import { onMount } from 'svelte';
   import CatBuilder from '$lib/components/CatBuilder.svelte';
@@ -16,9 +15,22 @@
   let cartItems = [];
   let cartCount = 0;
 
-  // Форма заявки (остаётся как есть)
+  // Форма заявки
   let formData = { name: '', phone: '', email: '' };
   let formSubmitted = false;
+
+  // Уведомления на сайте
+  let toastMessage = '';
+  let toastType = ''; // 'success' или 'error'
+
+  function showToast(message, type = 'success', duration = 3000) {
+    toastMessage = message;
+    toastType = type;
+    setTimeout(() => {
+      toastMessage = '';
+      toastType = '';
+    }, duration);
+  }
 
   // ==================== ЛОКАЛЬНЫЕ ФУНКЦИИ ХРАНЕНИЯ ====================
 
@@ -40,7 +52,6 @@
     localStorage.setItem(`cart_${username}`, JSON.stringify(cart));
   }
 
-  // Загрузка корзины текущего пользователя
   function loadUserCart() {
     if (!currentUser) {
       cartItems = [];
@@ -76,20 +87,20 @@
     const users = getAllUsers();
 
     if (isRegistering) {
-      // Регистрация
       if (users[trimmedUsername]) {
         loginError = 'Пользователь с таким именем уже существует';
         return;
       }
       users[trimmedUsername] = { password: trimmedPassword };
       saveAllUsers(users);
+      saveUserCart(trimmedUsername, []);
 
       currentUser = { username: trimmedUsername };
       isAuthenticated = true;
       localStorage.setItem('current_user', JSON.stringify(currentUser));
-      saveUserCart(trimmedUsername, []); // создаём пустую корзину
+
+      showToast('Регистрация успешна! Добро пожаловать!', 'success');
     } else {
-      // Вход
       if (!users[trimmedUsername] || users[trimmedUsername].password !== trimmedPassword) {
         loginError = 'Неверное имя пользователя или пароль';
         return;
@@ -98,6 +109,8 @@
       currentUser = { username: trimmedUsername };
       isAuthenticated = true;
       localStorage.setItem('current_user', JSON.stringify(currentUser));
+
+      showToast(`С возвращением, ${trimmedUsername}!`, 'success');
     }
 
     showLoginModal = false;
@@ -112,6 +125,7 @@
     cartItems = [];
     cartCount = 0;
     localStorage.removeItem('current_user');
+    showToast('Вы успешно вышли из аккаунта', 'success');
   }
 
   // ==================== КОРЗИНА ====================
@@ -120,8 +134,8 @@
     const catConfig = event.detail;
 
     if (!isAuthenticated) {
-      alert('Для добавления в корзину необходимо войти в систему');
       showLoginModal = true;
+      showToast('Войдите в аккаунт, чтобы добавить котика в корзину', 'error');
       return;
     }
 
@@ -135,7 +149,7 @@
     cartCount = cartItems.length;
     saveUserCart(currentUser.username, cartItems);
 
-    alert('✅ Котик добавлен в корзину! Данные сохранены в браузере.');
+    showToast('Котик добавлен в корзину!', 'success');
   }
 
   // ==================== ФОРМА ЗАЯВКИ ====================
@@ -143,11 +157,11 @@
   function submitForm(e) {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
-      alert('Заполните обязательные поля');
+      showToast('Заполните обязательные поля', 'error');
       return;
     }
     formSubmitted = true;
-    console.log('Заявка отправлена:', formData);
+    showToast('Спасибо! Заявка отправлена.', 'success');
     formData = { name: '', phone: '', email: '' };
     setTimeout(() => (formSubmitted = false), 3000);
   }
@@ -168,8 +182,12 @@
   });
 </script>
 
-<!-- Остальной HTML и стили остаются почти без изменений -->
-<!-- Только убрал упоминания о Vercel Blob и кнопку проверки хранилища -->
+<!-- Toast-уведомление -->
+{#if toastMessage}
+  <div class="toast {toastType}">
+    <span>{toastMessage}</span>
+  </div>
+{/if}
 
 <header class="header">
   <div class="header-container">
@@ -221,11 +239,10 @@
     <div class="about-content">
       <p>Добро пожаловать в питомник "Кото-Мир" — место, где рождается счастье!</p>
       <p>Создайте своего идеального котика в конструкторе и добавьте в корзину.</p>
-      <p><strong>Все данные хранятся локально в вашем браузере (localStorage).</strong></p>
       {#if isAuthenticated}
         <p class="welcome-message">Добро пожаловать, <strong>{currentUser.username}</strong>! У вас в корзине: {cartCount} котиков.</p>
       {:else}
-        <p class="auth-prompt">⚠️ Для сохранения котиков необходимо войти в систему.</p>
+        <p class="auth-prompt">⚠️ Для добавления котиков в корзину необходимо войти в систему.</p>
       {/if}
     </div>
   </section>
