@@ -1,20 +1,18 @@
 // src/routes/api/auth/register/+server.js
 import { loadData, saveData, hashPassword, generateId } from '$lib/db/blob-utils.js';
-
 export async function POST({ request }) {
   try {
     const { username, password } = await request.json();
-    
+   
     if (!username || !password) {
       return new Response(
         JSON.stringify({ error: 'Username and password are required' }),
         { status: 400 }
       );
     }
-
     // Загружаем текущие данные
     let data = await loadData();
-    
+   
     // Проверяем, существует ли пользователь
     if (data.users && data.users.find(user => user.username === username)) {
       return new Response(
@@ -22,7 +20,6 @@ export async function POST({ request }) {
         { status: 409 }
       );
     }
-
     // Создаем нового пользователя
     const newUser = {
       id: generateId(),
@@ -32,35 +29,33 @@ export async function POST({ request }) {
       cart: [],
       orders: []
     };
-
     // Добавляем пользователя
     if (!data.users) data.users = [];
     data.users.push(newUser);
-    
+   
     // Сохраняем обновленные данные (saveData не выбрасывает ошибку)
     await saveData(data);
-
     // Возвращаем пользователя (без пароля)
     const { password: _, ...userWithoutPassword } = newUser;
-    
+   
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         message: 'Registration successful',
-        user: userWithoutPassword 
+        user: userWithoutPassword
       }),
-      { 
+      {
         status: 201,
-        headers: { 'Content-Type': 'application/json' } 
+        headers: { 'Content-Type': 'application/json' }
       }
     );
   } catch (error) {
     console.error('Registration error:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: false,
         error: 'Registration failed',
-        details: error.message 
+        details: error.message
       }),
       { status: 500 }
     );
