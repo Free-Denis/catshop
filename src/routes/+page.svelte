@@ -60,20 +60,61 @@
     }
   }
   
-  // Авторизация
-  async function handleAuth() {
+  // ИСПРАВЛЕННАЯ функция авторизации
+  async function handleAuth(e) {
+    e.preventDefault();
     loginError = '';
+    
+    // ВАЖНО: Обрезаем пробелы и проверяем
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+    
+    if (!trimmedUsername || !trimmedPassword) {
+      loginError = 'Заполните все поля';
+      return;
+    }
+    
+    if (trimmedUsername.length < 3) {
+      loginError = 'Имя пользователя минимум 3 символа';
+      return;
+    }
+    
+    if (trimmedPassword.length < 6) {
+      loginError = 'Пароль минимум 6 символов';
+      return;
+    }
     
     const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
     
     try {
+      console.log('Отправляем запрос на:', endpoint);
+      console.log('Данные:', { username: trimmedUsername, password: trimmedPassword });
+      
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ 
+          username: trimmedUsername, 
+          password: trimmedPassword 
+        })
       });
       
-      const data = await response.json();
+      console.log('Статус ответа:', response.status);
+      
+      const responseText = await response.text();
+      console.log('Текст ответа:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Ошибка парсинга JSON:', parseError, 'Текст:', responseText);
+        loginError = 'Ошибка сервера (неверный формат ответа)';
+        return;
+      }
       
       if (response.ok) {
         currentUser = data.user;
@@ -91,7 +132,8 @@
         loginError = data.error || 'Ошибка авторизации';
       }
     } catch (error) {
-      loginError = 'Ошибка сети';
+      console.error('Ошибка сети:', error);
+      loginError = 'Ошибка сети или сервера';
     }
   }
   
@@ -122,7 +164,9 @@
           username: currentUser.username,
           cat: {
             ...catConfig,
-            status: 'cart'
+            id: Date.now() + Math.random().toString(36).substr(2, 9),
+            status: 'cart',
+            createdAt: new Date().toISOString()
           }
         })
       });
@@ -143,7 +187,7 @@
     }
   }
   
-  // Отправка формы заявки (локально, без сохранения в базу)
+  // Отправка формы заявки
   function submitForm(e) {
     e.preventDefault();
     
@@ -171,10 +215,15 @@
     // Проверяем авторизацию
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
-      currentUser = JSON.parse(savedUser);
-      isAuthenticated = true;
-      // Загружаем корзину пользователя
-      await loadUserCart();
+      try {
+        currentUser = JSON.parse(savedUser);
+        isAuthenticated = true;
+        // Загружаем корзину пользователя
+        await loadUserCart();
+      } catch (e) {
+        console.error('Ошибка парсинга сохраненного пользователя:', e);
+        localStorage.removeItem('user');
+      }
     }
   });
 </script>
@@ -186,11 +235,11 @@
     
     <div class="header-actions">
       {#if isAuthenticated}
-        <span class="username">{currentUser?.username}</span>
+        <span class="username">👤 {currentUser?.username}</span>
         <button class="btn btn-logout" on:click={logout}>Выйти</button>
       {:else}
         <button class="btn btn-login" on:click={() => showLoginModal = true}>
-          Войти
+          Войти / Регистрация
         </button>
       {/if}
       
@@ -210,9 +259,9 @@
   <div class="modal" on:click|stopPropagation>
     <h2>{isRegistering ? 'Регистрация' : 'Вход'}</h2>
     
-    <form on:submit|preventDefault={handleAuth}>
-      <input type="text" bind:value={username} placeholder="Имя пользователя" required />
-      <input type="password" bind:value={password} placeholder="Пароль" required />
+    <form on:submit={handleAuth}>
+      <input type="text" bind:value={username} placeholder="Имя пользователя" required minlength="3" />
+      <input type="password" bind:value={password} placeholder="Пароль" required minlength="6" />
       
       {#if loginError}
         <p class="error-message">{loginError}</p>
@@ -223,11 +272,19 @@
       </button>
     </form>
     
-    <button class="btn btn-link" on:click={() => isRegistering = !isRegistering}>
+    <button class="btn btn-link" on:click={() => {
+      isRegistering = !isRegistering;
+      loginError = '';
+    }}>
       {isRegistering ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
     </button>
     
-    <button class="btn btn-close" on:click={() => showLoginModal = false}>✕</button>
+    <button class="btn btn-close" on:click={() => {
+      showLoginModal = false;
+      loginError = '';
+      username = '';
+      password = '';
+    }}>✕</button>
   </div>
 </div>
 {/if}
@@ -242,6 +299,11 @@
       <p>Добро пожаловать в питомник "Кото-Мир" — место, где рождается счастье!</p>
       <p>Создайте своего идеального котика в конструкторе и добавьте в корзину.</p>
       <p>Все данные хранятся в облачной базе Vercel Blob Storage.</p>
+      {#if isAuthenticated}
+        <p class="welcome-message">Добро пожаловать, <strong>{currentUser.username}</strong>! У вас в корзине: {cartCount} котиков.</p>
+      {:else}
+        <p class="auth-prompt">⚠️ Для сохранения котиков необходимо войти в систему.</p>
+      {/if}
     </div>
   </section>
   
@@ -289,10 +351,13 @@
   }
   
   .header {
-    background: #667eea;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 1rem 2rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
   
   .header-container {
@@ -314,6 +379,13 @@
     align-items: center;
   }
   
+  .username {
+    font-weight: 500;
+    padding: 0.3rem 0.8rem;
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+  }
+  
   .btn {
     padding: 0.5rem 1rem;
     border: none;
@@ -322,10 +394,22 @@
     background: white;
     color: #667eea;
     font-weight: 500;
+    transition: all 0.2s;
   }
   
-  .btn-login:hover, .btn-logout:hover {
-    background: #f0f0f0;
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  
+  .btn-login {
+    background: #48bb78;
+    color: white;
+  }
+  
+  .btn-logout {
+    background: #f56565;
+    color: white;
   }
   
   .cart-btn {
@@ -337,6 +421,12 @@
     padding: 0.5rem 1rem;
     border-radius: 4px;
     text-decoration: none;
+    transition: all 0.2s;
+  }
+  
+  .cart-btn:hover {
+    background: #ff5252;
+    transform: translateY(-2px);
   }
   
   .cart-count {
@@ -363,29 +453,61 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    backdrop-filter: blur(2px);
   }
   
   .modal {
     background: white;
     padding: 2rem;
-    border-radius: 8px;
+    border-radius: 12px;
     width: 90%;
     max-width: 400px;
     position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  }
+  
+  .modal h2 {
+    margin-top: 0;
+    color: #333;
   }
   
   .modal input {
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.75rem;
     margin: 0.5rem 0;
     border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 6px;
     box-sizing: border-box;
+    font-size: 1rem;
+  }
+  
+  .modal input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   }
   
   .error-message {
-    color: red;
+    color: #f56565;
     font-size: 0.9rem;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: #fed7d7;
+    border-radius: 4px;
+  }
+  
+  .btn-primary {
+    background: #667eea;
+    color: white;
+    width: 100%;
+    margin: 1rem 0;
+  }
+  
+  .btn-link {
+    background: none;
+    color: #667eea;
+    text-decoration: underline;
+    width: 100%;
   }
   
   .btn-close {
@@ -394,6 +516,10 @@
     right: 1rem;
     background: none;
     color: #999;
+    font-size: 1.5rem;
+    padding: 0;
+    width: 30px;
+    height: 30px;
   }
   
   .main-content {
@@ -404,19 +530,50 @@
   
   section {
     background: white;
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 2rem;
     margin-bottom: 2rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  }
+  
+  h2 {
+    color: #333;
+    margin-top: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #667eea;
+  }
+  
+  .about-content {
+    line-height: 1.6;
+    color: #555;
+  }
+  
+  .welcome-message {
+    color: #48bb78;
+    font-weight: 500;
+    padding: 0.5rem;
+    background: #c6f6d5;
+    border-radius: 6px;
+    margin-top: 1rem;
+  }
+  
+  .auth-prompt {
+    color: #ed8936;
+    font-weight: 500;
+    padding: 0.5rem;
+    background: #feebc8;
+    border-radius: 6px;
+    margin-top: 1rem;
   }
   
   .consultation-form input {
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.75rem;
     margin: 0.5rem 0;
     border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 6px;
     box-sizing: border-box;
+    font-size: 1rem;
   }
   
   .btn-submit {
@@ -424,6 +581,8 @@
     color: white;
     width: 100%;
     margin-top: 1rem;
+    padding: 0.75rem;
+    font-size: 1rem;
   }
   
   .success-message {
@@ -437,11 +596,14 @@
   .db-info {
     background: #e9ecef;
     font-size: 0.9rem;
+    border-left: 4px solid #667eea;
   }
   
   .btn-small {
     font-size: 0.8rem;
     padding: 0.3rem 0.6rem;
     margin-top: 0.5rem;
+    background: #667eea;
+    color: white;
   }
 </style>
