@@ -23,6 +23,92 @@
   let toastMessage = '';
   let toastType = ''; // 'success' или 'error'
 
+  // Данные для галереи котиков
+  const catGallery = [
+    {
+      id: 1,
+      title: "Британская короткошёрстная",
+      description: "Спокойные и аристократичные кошки с плюшевой шерстью",
+      features: ["Круглая мордочка", "Большие глаза", "Плотное телосложение"]
+    },
+    {
+      id: 2,
+      title: "Мейн-кун",
+      description: "Крупные и дружелюбные гиганты с кисточками на ушах",
+      features: ["Длинная шерсть", "Мускулистое тело", "Дружелюбный характер"]
+    },
+    {
+      id: 3,
+      title: "Сфинкс",
+      description: "Бесшёрстные кошки с тёплой кожей и экстравагантной внешностью",
+      features: ["Отсутствие шерсти", "Морщинистая кожа", "Энергичный характер"]
+    },
+    {
+      id: 4,
+      title: "Сиамская",
+      description: "Элегантные и разговорчивые кошки с яркими голубыми глазами",
+      features: ["Стройное тело", "Короткая шерсть", "Общительность"]
+    },
+    {
+      id: 5,
+      title: "Шотландская вислоухая",
+      description: "Миловидные кошки с загнутыми вперёд ушками",
+      features: ["Сложенные уши", "Круглая голова", "Спокойный нрав"]
+    },
+    {
+      id: 6,
+      title: "Бенгальская",
+      description: "Дикие красавцы с леопардовым окрасом и активным характером",
+      features: ["Пятнистый окрас", "Мускулистое тело", "Любовь к воде"]
+    }
+  ];
+
+  // Данные для отзывов
+  const testimonials = [
+    {
+      id: 1,
+      name: "Анна Петрова",
+      cat: "Британский кот Марсик",
+      review: "Забрали Марсика месяц назад. Адаптировался сразу, очень ласковый и умный котёнок. Питомник предоставил все документы и дал ценные советы по уходу.",
+      avatar: "😺"
+    },
+    {
+      id: 2,
+      name: "Иван Смирнов",
+      cat: "Мейн-кун Гризли",
+      review: "Мечтали о мейн-куне несколько лет. Гризли - настоящий друг семьи, играет с детьми и очень аккуратный. Спасибо за здорового и воспитанного котёнка!",
+      avatar: "😸"
+    },
+    {
+      id: 3,
+      name: "Мария Козлова",
+      cat: "Сфинкс Клеопатра",
+      review: "Клеопатра - наше солнышко! Очень теплая и ласковая, любит спать под одеялом. Питомник помог с выбором и консультацией по уходу за бесшёрстной породой.",
+      avatar: "😻"
+    },
+    {
+      id: 4,
+      name: "Дмитрий Волков",
+      cat: "Сиамский кот Сима",
+      review: "Сима очень разговорчивый и преданный. Всегда встречает с работы. Питомник ответственно подходит к разведению, котята здоровые и социализированные.",
+      avatar: "🙀"
+    },
+    {
+      id: 5,
+      name: "Ольга Новикова",
+      cat: "Шотландская кошка Пушинка",
+      review: "Пушинка с загнутыми ушками покорила наше сердце. Очень игривая и ласковая. Спасибо за профессиональный подход и поддержку после покупки!",
+      avatar: "😽"
+    },
+    {
+      id: 6,
+      name: "Сергей Иванов",
+      cat: "Бенгальский кот Лео",
+      review: "Лео - настоящий леопард в миниатюре! Очень активный и любознательный. Питомник дал подробные рекомендации по содержанию этой активной породы.",
+      avatar: "🐱"
+    }
+  ];
+
   function showToast(message, type = 'success', duration = 3000) {
     toastMessage = message;
     toastType = type;
@@ -247,9 +333,57 @@
     </div>
   </section>
 
+  <!-- Галерея пород котиков -->
+  <section class="gallery-section">
+    <h2>🏆 Наши породы котиков</h2>
+    <p class="section-description">Знакомьтесь с нашими прекрасными породами. Каждая уникальна по-своему!</p>
+    
+    <div class="gallery-grid">
+      {#each catGallery as cat}
+        <div class="gallery-card">
+          <div class="gallery-image" style="background: linear-gradient(135deg, {getCatGradient(cat.id)});">
+            <span class="cat-emoji">{getCatEmoji(cat.id)}</span>
+          </div>
+          <div class="gallery-content">
+            <h3>{cat.title}</h3>
+            <p>{cat.description}</p>
+            <div class="cat-features">
+              {#each cat.features as feature}
+                <span class="feature-tag">✓ {feature}</span>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/each}
+    </div>
+  </section>
+
   <section class="builder-section">
     <h2>🎨 Собери своего котика</h2>
     <CatBuilder on:addToCart={handleAddToCart} />
+  </section>
+
+  <!-- Раздел с отзывами -->
+  <section class="testimonials-section">
+    <h2>💬 Отзывы наших клиентов</h2>
+    <p class="section-description">Что говорят счастливые владельцы наших котиков</p>
+    
+    <div class="testimonials-grid">
+      {#each testimonials as testimonial}
+        <div class="testimonial-card">
+          <div class="testimonial-header">
+            <div class="avatar">{testimonial.avatar}</div>
+            <div class="client-info">
+              <h4>{testimonial.name}</h4>
+              <p class="cat-name">Котик: {testimonial.cat}</p>
+            </div>
+          </div>
+          <div class="testimonial-body">
+            <p>"{testimonial.review}"</p>
+          </div>
+        </div>
+      {/each}
+    </div>
   </section>
 
   <section class="form-section">
@@ -269,7 +403,6 @@
     {/if}
   </section>
 </main>
-
 
 <style>
   :global(body) {
@@ -472,6 +605,12 @@
     border-bottom: 2px solid #667eea;
   }
  
+  .section-description {
+    color: #666;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+  }
+ 
   .about-content {
     line-height: 1.6;
     color: #555;
@@ -493,6 +632,130 @@
     background: #feebc8;
     border-radius: 6px;
     margin-top: 1rem;
+  }
+ 
+  /* Стили для галереи */
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+ 
+  .gallery-card {
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e2e8f0;
+  }
+ 
+  .gallery-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  }
+ 
+  .gallery-image {
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+ 
+  .cat-emoji {
+    font-size: 4rem;
+    filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));
+  }
+ 
+  .gallery-content {
+    padding: 1.5rem;
+  }
+ 
+  .gallery-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: #2d3748;
+  }
+ 
+  .gallery-content p {
+    color: #4a5568;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+  }
+ 
+  .cat-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+ 
+  .feature-tag {
+    background: #edf2f7;
+    color: #4a5568;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+ 
+  /* Стили для отзывов */
+  .testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+ 
+  .testimonial-card {
+    background: #f7fafc;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+  }
+ 
+  .testimonial-card:hover {
+    background: white;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+  }
+ 
+  .testimonial-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+ 
+  .avatar {
+    font-size: 2.5rem;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+ 
+  .client-info h4 {
+    margin: 0 0 0.25rem 0;
+    color: #2d3748;
+  }
+ 
+  .cat-name {
+    margin: 0;
+    color: #718096;
+    font-size: 0.9rem;
+  }
+ 
+  .testimonial-body {
+    color: #4a5568;
+    line-height: 1.6;
+    font-style: italic;
+    border-left: 3px solid #667eea;
+    padding-left: 1rem;
   }
  
   .consultation-form input {
@@ -535,4 +798,25 @@
     background: #667eea;
     color: white;
   }
+
+  /* Вспомогательные функции для стилей */
+  <script>
+    // Добавьте эти функции в блок <script>
+    function getCatGradient(id) {
+      const gradients = [
+        '#667eea, #764ba2',
+        '#f093fb, #f5576c',
+        '#4facfe, #00f2fe',
+        '#43e97b, #38f9d7',
+        '#fa709a, #fee140',
+        '#a8edea, #fed6e3'
+      ];
+      return gradients[(id - 1) % gradients.length];
+    }
+
+    function getCatEmoji(id) {
+      const emojis = ['🐱', '🐯', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
+      return emojis[id % emojis.length];
+    }
+  </script>
 </style>
