@@ -2,7 +2,7 @@
 <script>
   import { onMount } from 'svelte';
   import CatBuilder from '$lib/components/CatBuilder.svelte';
-  
+ 
   // Состояния для авторизации
   let showLoginModal = false;
   let username = '';
@@ -11,15 +11,15 @@
   let loginError = '';
   let isAuthenticated = false;
   let currentUser = null;
-  
+ 
   // Корзина
   let cartItems = [];
   let cartCount = 0;
-  
+ 
   // Форма заявки
   let formData = { name: '', phone: '', email: '' };
   let formSubmitted = false;
-  
+ 
   // Загрузить корзину пользователя из базы
   async function loadUserCart() {
     if (!currentUser) {
@@ -27,7 +27,7 @@
       cartCount = 0;
       return;
     }
-    
+   
     try {
       const response = await fetch(`/api/cart/get?username=${encodeURIComponent(currentUser.username)}`);
       if (response.ok) {
@@ -42,14 +42,14 @@
       cartCount = 0;
     }
   }
-  
+ 
   // Проверить создан ли файл в хранилище
   async function checkStorage() {
     try {
       const response = await fetch('/api/debug/check-storage');
       const data = await response.json();
       console.log('Статус хранилища:', data);
-      
+     
       if (data.fileExists) {
         console.log('Файл найден:', data.usersCount, 'пользователей');
       } else {
@@ -59,54 +59,54 @@
       console.error('Ошибка проверки хранилища:', error);
     }
   }
-  
+ 
   // ИСПРАВЛЕННАЯ функция авторизации
   async function handleAuth(e) {
     e.preventDefault();
     loginError = '';
-    
+   
     // ВАЖНО: Обрезаем пробелы и проверяем
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
-    
+   
     if (!trimmedUsername || !trimmedPassword) {
       loginError = 'Заполните все поля';
       return;
     }
-    
+   
     if (trimmedUsername.length < 3) {
       loginError = 'Имя пользователя минимум 3 символа';
       return;
     }
-    
+   
     if (trimmedPassword.length < 6) {
       loginError = 'Пароль минимум 6 символов';
       return;
     }
-    
+   
     const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
-    
+   
     try {
       console.log('Отправляем запрос на:', endpoint);
       console.log('Данные:', { username: trimmedUsername, password: trimmedPassword });
-      
+     
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ 
-          username: trimmedUsername, 
-          password: trimmedPassword 
+        body: JSON.stringify({
+          username: trimmedUsername,
+          password: trimmedPassword
         })
       });
-      
+     
       console.log('Статус ответа:', response.status);
-      
+     
       const responseText = await response.text();
       console.log('Текст ответа:', responseText);
-      
+     
       let data;
       try {
         data = JSON.parse(responseText);
@@ -115,19 +115,19 @@
         loginError = 'Ошибка сервера (неверный формат ответа)';
         return;
       }
-      
+     
       if (response.ok) {
         currentUser = data.user;
         isAuthenticated = true;
         showLoginModal = false;
         username = '';
         password = '';
-        
+       
         localStorage.setItem('user', JSON.stringify(data.user));
-        
+       
         // Загружаем корзину пользователя
         await loadUserCart();
-        
+       
       } else {
         loginError = data.error || 'Ошибка авторизации';
       }
@@ -136,7 +136,7 @@
       loginError = 'Ошибка сети или сервера';
     }
   }
-  
+ 
   function logout() {
     isAuthenticated = false;
     currentUser = null;
@@ -144,17 +144,17 @@
     cartCount = 0;
     localStorage.removeItem('user');
   }
-  
+ 
   // Добавление в корзину - СОХРАНЯЕТ В БАЗУ
   async function handleAddToCart(event) {
     const catConfig = event.detail;
-    
+   
     if (!isAuthenticated) {
       alert('Для добавления в корзину необходимо войти в систему');
       showLoginModal = true;
       return;
     }
-    
+   
     try {
       // Сохраняем котика в базу
       const response = await fetch('/api/cart/add', {
@@ -170,9 +170,9 @@
           }
         })
       });
-      
+     
       const result = await response.json();
-      
+     
       if (response.ok) {
         // Обновляем локальное состояние
         cartItems.push(catConfig);
@@ -186,32 +186,32 @@
       alert('❌ Не удалось сохранить котика. Попробуйте снова.');
     }
   }
-  
+ 
   // Отправка формы заявки
   function submitForm(e) {
     e.preventDefault();
-    
+   
     if (!formData.name || !formData.phone) {
       alert('Заполните обязательные поля');
       return;
     }
-    
+   
     formSubmitted = true;
     console.log('Заявка отправлена:', formData);
-    
+   
     // Сбрасываем форму
     formData = { name: '', phone: '', email: '' };
-    
+   
     setTimeout(() => {
       formSubmitted = false;
     }, 3000);
   }
-  
+ 
   // Инициализация
   onMount(async () => {
     // Проверяем хранилище
     await checkStorage();
-    
+   
     // Проверяем авторизацию
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
@@ -227,12 +227,11 @@
     }
   });
 </script>
-
 <!-- ШАПКА -->
 <header class="header">
   <div class="header-container">
     <h1 class="logo">🐾 Кото-Мир</h1>
-    
+   
     <div class="header-actions">
       {#if isAuthenticated}
         <span class="username">👤 {currentUser?.username}</span>
@@ -242,7 +241,7 @@
           Войти / Регистрация
         </button>
       {/if}
-      
+     
       <a href="/cart" class="cart-btn">
         🛒 Корзина
         {#if cartCount > 0}
@@ -252,33 +251,32 @@
     </div>
   </div>
 </header>
-
 <!-- МОДАЛЬНОЕ ОКНО АВТОРИЗАЦИИ -->
 {#if showLoginModal}
 <div class="modal-overlay" on:click={() => showLoginModal = false}>
   <div class="modal" on:click|stopPropagation>
     <h2>{isRegistering ? 'Регистрация' : 'Вход'}</h2>
-    
+   
     <form on:submit={handleAuth}>
       <input type="text" bind:value={username} placeholder="Имя пользователя" required minlength="3" />
       <input type="password" bind:value={password} placeholder="Пароль" required minlength="6" />
-      
+     
       {#if loginError}
         <p class="error-message">{loginError}</p>
       {/if}
-      
+     
       <button type="submit" class="btn btn-primary">
         {isRegistering ? 'Зарегистрироваться' : 'Войти'}
       </button>
     </form>
-    
+   
     <button class="btn btn-link" on:click={() => {
       isRegistering = !isRegistering;
       loginError = '';
     }}>
       {isRegistering ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
     </button>
-    
+   
     <button class="btn btn-close" on:click={() => {
       showLoginModal = false;
       loginError = '';
@@ -288,10 +286,9 @@
   </div>
 </div>
 {/if}
-
 <!-- ОСНОВНОЕ СОДЕРЖИМОЕ -->
 <main class="main-content">
-  
+ 
   <!-- ИНФОРМАЦИЯ О ПРЕДПРИЯТИИ -->
   <section class="about-section">
     <h2>🐱 О нашем питомнике</h2>
@@ -306,17 +303,17 @@
       {/if}
     </div>
   </section>
-  
+ 
   <!-- КОНСТРУКТОР КОТИКА -->
   <section class="builder-section">
     <h2>🎨 Собери своего котика</h2>
     <CatBuilder {cartItems} {cartCount} on:addToCart={handleAddToCart} />
   </section>
-  
+ 
   <!-- ФОРМА ЗАЯВКИ -->
   <section class="form-section">
     <h2>📞 Оставить заявку на консультацию</h2>
-    
+   
     {#if formSubmitted}
       <div class="success-message">
         <h3>✅ Спасибо за заявку!</h3>
@@ -331,7 +328,7 @@
       </form>
     {/if}
   </section>
-  
+ 
   <!-- ИНФО О БАЗЕ -->
   <section class="db-info">
     <h3>ℹ️ Информация о хранилище</h3>
@@ -341,7 +338,6 @@
     <button class="btn btn-small" on:click={checkStorage}>Проверить хранилище</button>
   </section>
 </main>
-
 <style>
   :global(body) {
     margin: 0;
@@ -349,7 +345,7 @@
     background: #f8f9fa;
     min-height: 100vh;
   }
-  
+ 
   .header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -359,7 +355,7 @@
     top: 0;
     z-index: 100;
   }
-  
+ 
   .header-container {
     max-width: 1200px;
     margin: 0 auto;
@@ -367,25 +363,25 @@
     justify-content: space-between;
     align-items: center;
   }
-  
+ 
   .logo {
     margin: 0;
     font-size: 1.5rem;
   }
-  
+ 
   .header-actions {
     display: flex;
     gap: 1rem;
     align-items: center;
   }
-  
+ 
   .username {
     font-weight: 500;
     padding: 0.3rem 0.8rem;
     background: rgba(255,255,255,0.2);
     border-radius: 20px;
   }
-  
+ 
   .btn {
     padding: 0.5rem 1rem;
     border: none;
@@ -396,22 +392,22 @@
     font-weight: 500;
     transition: all 0.2s;
   }
-  
+ 
   .btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   }
-  
+ 
   .btn-login {
     background: #48bb78;
     color: white;
   }
-  
+ 
   .btn-logout {
     background: #f56565;
     color: white;
   }
-  
+ 
   .cart-btn {
     display: flex;
     align-items: center;
@@ -423,12 +419,12 @@
     text-decoration: none;
     transition: all 0.2s;
   }
-  
+ 
   .cart-btn:hover {
     background: #ff5252;
     transform: translateY(-2px);
   }
-  
+ 
   .cart-count {
     background: white;
     color: #ff6b6b;
@@ -441,7 +437,7 @@
     font-size: 0.8rem;
     font-weight: bold;
   }
-  
+ 
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -455,7 +451,7 @@
     z-index: 1000;
     backdrop-filter: blur(2px);
   }
-  
+ 
   .modal {
     background: white;
     padding: 2rem;
@@ -465,12 +461,12 @@
     position: relative;
     box-shadow: 0 10px 25px rgba(0,0,0,0.2);
   }
-  
+ 
   .modal h2 {
     margin-top: 0;
     color: #333;
   }
-  
+ 
   .modal input {
     width: 100%;
     padding: 0.75rem;
@@ -480,13 +476,13 @@
     box-sizing: border-box;
     font-size: 1rem;
   }
-  
+ 
   .modal input:focus {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   }
-  
+ 
   .error-message {
     color: #f56565;
     font-size: 0.9rem;
@@ -495,21 +491,21 @@
     background: #fed7d7;
     border-radius: 4px;
   }
-  
+ 
   .btn-primary {
     background: #667eea;
     color: white;
     width: 100%;
     margin: 1rem 0;
   }
-  
+ 
   .btn-link {
     background: none;
     color: #667eea;
     text-decoration: underline;
     width: 100%;
   }
-  
+ 
   .btn-close {
     position: absolute;
     top: 1rem;
@@ -521,13 +517,13 @@
     width: 30px;
     height: 30px;
   }
-  
+ 
   .main-content {
     max-width: 1200px;
     margin: 2rem auto;
     padding: 0 1rem;
   }
-  
+ 
   section {
     background: white;
     border-radius: 12px;
@@ -535,19 +531,19 @@
     margin-bottom: 2rem;
     box-shadow: 0 4px 6px rgba(0,0,0,0.05);
   }
-  
+ 
   h2 {
     color: #333;
     margin-top: 0;
     padding-bottom: 0.5rem;
     border-bottom: 2px solid #667eea;
   }
-  
+ 
   .about-content {
     line-height: 1.6;
     color: #555;
   }
-  
+ 
   .welcome-message {
     color: #48bb78;
     font-weight: 500;
@@ -556,7 +552,7 @@
     border-radius: 6px;
     margin-top: 1rem;
   }
-  
+ 
   .auth-prompt {
     color: #ed8936;
     font-weight: 500;
@@ -565,7 +561,7 @@
     border-radius: 6px;
     margin-top: 1rem;
   }
-  
+ 
   .consultation-form input {
     width: 100%;
     padding: 0.75rem;
@@ -575,7 +571,7 @@
     box-sizing: border-box;
     font-size: 1rem;
   }
-  
+ 
   .btn-submit {
     background: #48bb78;
     color: white;
@@ -584,7 +580,7 @@
     padding: 0.75rem;
     font-size: 1rem;
   }
-  
+ 
   .success-message {
     text-align: center;
     padding: 2rem;
@@ -592,13 +588,13 @@
     border-radius: 8px;
     color: #22543d;
   }
-  
+ 
   .db-info {
     background: #e9ecef;
     font-size: 0.9rem;
     border-left: 4px solid #667eea;
   }
-  
+ 
   .btn-small {
     font-size: 0.8rem;
     padding: 0.3rem 0.6rem;
